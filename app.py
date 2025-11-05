@@ -3,63 +3,52 @@ from flask_cors import CORS
 import json
 import os
 
-# --- Configuración del servidor Flask ---
 app = Flask(__name__)
-CORS(app)  # Permitir peticiones desde Flutter Web
+CORS(app)
 
-# --- Archivo donde se guardan los estados ---
 LED_FILE = "leds.json"
 
-# --- Función para leer el estado de los LEDs ---
-def leer_estado_leds():
-    if not os.path.exists(LED_FILE):
-        # Si no existe el archivo, se crea con los LEDs apagados
-        estado_inicial = {"led1": False, "led2": False}
-        with open(LED_FILE, "w") as f:
-            json.dump(estado_inicial, f)
-        return estado_inicial
+# Cargar estado inicial de los LEDs desde archivo JSON
+def cargar_estado():
+    if os.path.exists(LED_FILE):
+        with open(LED_FILE, "r") as f:
+            return json.load(f)
+    return {"led1": False, "led2": False}
 
-    with open(LED_FILE, "r") as f:
-        return json.load(f)
-
-# --- Función para guardar el estado de los LEDs ---
-def guardar_estado_leds(estado):
+# Guardar estado actual de los LEDs
+def guardar_estado(estado):
     with open(LED_FILE, "w") as f:
         json.dump(estado, f)
 
-# --- Ruta raíz ---
-@app.route('/')
+leds = cargar_estado()
+
+@app.route("/")
 def home():
-    return "<h2>Servidor Flask activo ✅</h2><p>Usa /led/status para ver el estado de los LEDs.</p>"
+    return "<h2>Servidor ESP32 Control de LEDs</h2><p>Endpoints: /led/on, /led/off, /led/status</p>"
 
-# --- Ruta para obtener el estado de los LEDs ---
-@app.route('/led/status', methods=['GET'])
-def obtener_estado_leds():
-    estado = leer_estado_leds()
-    return jsonify(estado)
+@app.route("/led/on", methods=["GET"])
+def led_on():
+    led = request.args.get("led")
+    if led in leds:
+        leds[led] = True
+        guardar_estado(leds)
+        print(f"{led} encendido")
+        return jsonify({"status": "ok", "led": led, "state": "on"})
+    return jsonify({"error": "LED no encontrado"}), 404
 
-# --- Ruta para cambiar el estado de un LED ---
-@app.route('/led/<led_id>', methods=['POST'])
-def cambiar_estado_led(led_id):
-    estado = leer_estado_leds()
-    data = request.get_json()
+@app.route("/led/off", methods=["GET"])
+def led_off():
+    led = request.args.get("led")
+    if led in leds:
+        leds[led] = False
+        guardar_estado(leds)
+        print(f"{led} apagado")
+        return jsonify({"status": "ok", "led": led, "state": "off"})
+    return jsonify({"error": "LED no encontrado"}), 404
 
-    if led_id not in estado:
-        return jsonify({"error": "LED no encontrado"}), 404
+@app.route("/led/status", methods=["GET"])
+def led_status():
+    return jsonify(leds)
 
-    if "state" not in data:
-        return jsonify({"error": "Falta el parámetro 'state'"}), 400
-
-    # Actualizar el estado
-    nuevo_estado = bool(data["state"])
-    estado[led_id] = nuevo_estado
-    guardar_estado_leds(estado)
-
-    return jsonify({
-        "message": f"Estado de {led_id} actualizado",
-        "new_state": nuevo_estado
-    })
-
-# --- Ejecución local ---
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
