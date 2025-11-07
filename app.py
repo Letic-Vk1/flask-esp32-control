@@ -1,13 +1,13 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import json
-import os
+import json, os
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 LED_FILE = "leds.json"
 
+# --- Inicialización ---
 if not os.path.exists(LED_FILE):
     with open(LED_FILE, "w") as f:
         json.dump({"led1": False, "led2": False}, f)
@@ -25,36 +25,37 @@ def led_status():
     leds = leer_leds()
     return jsonify(leds)
 
-@app.route("/led/on/<led>", methods=["POST"])
+@app.route("/led/on/<led>", methods=["GET", "POST"])
 def led_on(led):
     leds = leer_leds()
-    led_key = f"led{led}" if led.isdigit() else led
-    if led_key in leds:
-        leds[led_key] = True
+    key = f"led{led}"
+    if key in leds:
+        leds[key] = True
         guardar_leds(leds)
-        print(f"✅ {led_key} encendido")
-        return jsonify({"message": f"{led_key} encendido"}), 200
+        print(f"✅ {key} encendido")
+        return jsonify({"message": f"{key} encendido"}), 200
     return jsonify({"error": "LED no encontrado"}), 404
 
-@app.route("/led/off/<led>", methods=["POST"])
+@app.route("/led/off/<led>", methods=["GET", "POST"])
 def led_off(led):
     leds = leer_leds()
-    led_key = f"led{led}" if led.isdigit() else led
-    if led_key in leds:
-        leds[led_key] = False
+    key = f"led{led}"
+    if key in leds:
+        leds[key] = False
         guardar_leds(leds)
-        print(f"🚫 {led_key} apagado")
-        return jsonify({"message": f"{led_key} apagado"}), 200
+        print(f"🚫 {key} apagado")
+        return jsonify({"message": f"{key} apagado"}), 200
     return jsonify({"error": "LED no encontrado"}), 404
 
 @app.route("/")
 def home():
     return """
     <h2>✅ Servidor Flask ESP32 - Control de LEDs</h2>
+    <p>Rutas disponibles:</p>
     <ul>
         <li>/led/status</li>
-        <li>/led/on/1 o /led/on/led1</li>
-        <li>/led/off/1 o /led/off/led1</li>
+        <li>/led/on/1 o /led/on/2</li>
+        <li>/led/off/1 o /led/off/2</li>
     </ul>
     """
 
